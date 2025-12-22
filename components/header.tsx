@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -10,6 +12,7 @@ const NAV_ITEMS = [
   { label: "Projects", id: "projects" },
   { label: "Certifications", id: "certifications" },
   { label: "Speaking", id: "speaking" },
+  { label: "Blog", id: "blog" },
   { label: "Contact", id: "contact" },
 ];
 
@@ -22,8 +25,12 @@ function getLinkClassName(isActive: boolean) {
 }
 
 export default function Header() {
+  const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
+
+  const isBlogRoute = pathname === "/blog" || pathname.startsWith("/blog/");
+  const isBlogActive = isBlogRoute || activeSection === "blog";
 
   useEffect(() => {
     const sections = NAV_ITEMS.map((item) => document.getElementById(item.id)).filter(
@@ -66,13 +73,20 @@ export default function Header() {
 
           <nav className="hidden md:flex items-center gap-8">
             {NAV_ITEMS.map((item) => (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                className={getLinkClassName(activeSection === item.id)}
-              >
-                {item.label}
-              </a>
+              <span key={item.id}>
+                {item.id === "blog" ? (
+                  <Link href="/blog" className={getLinkClassName(isBlogActive)}>
+                    {item.label}
+                  </Link>
+                ) : (
+                  <a
+                    href={`#${item.id}`}
+                    className={getLinkClassName(!isBlogRoute && activeSection === item.id)}
+                  >
+                    {item.label}
+                  </a>
+                )}
+              </span>
             ))}
           </nav>
 
@@ -100,18 +114,27 @@ export default function Header() {
         <div className="h-full w-full px-6 py-24" onClick={(e) => e.stopPropagation()}>
           <nav className="flex flex-col items-center gap-8">
             {NAV_ITEMS.map((item) => (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                className={[
-                  "text-2xl",
-                  getLinkClassName(activeSection === item.id),
-                ].join(" ")}
-                tabIndex={isMenuOpen ? 0 : -1}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                {item.label}
-              </a>
+              <span key={item.id} className="text-2xl">
+                {item.id === "blog" ? (
+                  <Link
+                    href="/blog"
+                    className={getLinkClassName(isBlogActive)}
+                    tabIndex={isMenuOpen ? 0 : -1}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {item.label}
+                  </Link>
+                ) : (
+                  <a
+                    href={`#${item.id}`}
+                    className={getLinkClassName(!isBlogRoute && activeSection === item.id)}
+                    tabIndex={isMenuOpen ? 0 : -1}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {item.label}
+                  </a>
+                )}
+              </span>
             ))}
           </nav>
         </div>

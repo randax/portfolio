@@ -211,6 +211,131 @@ pnpm build
 pnpm start
 ```
 
+## Deployment to Vercel
+
+### Prerequisites
+
+- A Sanity project created and configured
+- A GitHub repository for this codebase
+- A Vercel account (free tier works)
+
+### Step-by-Step Deployment
+
+1. **Push to GitHub**
+   - Ensure all changes are committed
+   - Push to your GitHub repository
+
+2. **Import to Vercel**
+   - Go to [vercel.com](https://vercel.com) and sign in
+   - Click **Add New Project**
+   - Import your GitHub repository
+   - Vercel will auto-detect the Next.js configuration
+
+3. **Configure Environment Variables (before deploying)**
+
+   Configure these in Vercel: **Project → Settings → Environment Variables**.
+
+   | Variable | Description | Where to Find |
+   |----------|-------------|---------------|
+   | `NEXT_PUBLIC_SANITY_PROJECT_ID` | Your Sanity project ID | Sanity dashboard → Project settings |
+   | `NEXT_PUBLIC_SANITY_DATASET` | Dataset name (usually `production`) | Sanity dashboard → Datasets |
+   | `NEXT_PUBLIC_SANITY_API_VERSION` | API version (e.g., `2024-12-01`) | Use current date or latest stable |
+   | `SANITY_API_TOKEN` | Read token for fetching data | Sanity dashboard → API → Tokens (Viewer permissions) |
+   | `REVALIDATE_SECRET` | Secret for webhook authentication | Generate using `openssl rand -base64 32` |
+
+   Steps:
+   1. Add each variable for **Production**, **Preview**, and **Development**
+   2. Redeploy after saving environment variables
+
+4. **Deploy**
+   - Click **Deploy** and wait for the build to complete
+   - Your site will be live at `https://your-project.vercel.app`
+
+5. **Configure Custom Domain (Optional)**
+   - Go to **Project Settings → Domains**
+   - Add your custom domain
+   - Update DNS records as instructed by Vercel
+
+6. **Set Up Sanity Webhooks (On-Demand Revalidation)**
+
+   In Sanity dashboard:
+
+   - Navigate to `https://www.sanity.io/manage`
+   - Go to **API settings → Webhooks**
+   - Create a new webhook:
+     - **Name**: `Vercel Revalidation`
+     - **URL**: `https://your-domain.vercel.app/api/revalidate`
+     - **Dataset**: `production` (or your configured dataset)
+     - **Trigger on**: Create, Update, Delete
+     - **HTTP method**: POST
+     - **Include drafts**: No (unless you want draft changes to trigger revalidation)
+
+   Webhook payload/body:
+
+   ```json
+   {
+     "secret": "{{secrets.REVALIDATE_SECRET}}",
+     "tag": "{{_type}}"
+   }
+   ```
+
+   Add `REVALIDATE_SECRET` to Sanity **secrets** in your project settings, then test the webhook using **Test webhook**.
+
+   **Webhook behavior**: When content is updated in Sanity, it will POST to `/api/revalidate` with the content type as `tag`, triggering Next.js to revalidate cached data for that content type.
+
+### Continuous Deployment
+
+- Vercel automatically deploys on every push to your main branch
+- Preview deployments are created for pull requests
+- Environment variables are inherited from project settings
+
+### Revalidation Strategy
+
+- Content changes in Sanity trigger automatic revalidation via webhooks
+- Blog posts use ISR (Incremental Static Regeneration) with on-demand revalidation
+- Homepage and portfolio sections revalidate when their respective content types are updated
+
+### Monitoring and Logs
+
+- View deployment logs in Vercel dashboard → **Deployments**
+- Check webhook logs in Sanity dashboard → **API → Webhooks**
+- Monitor revalidation requests in Vercel → **Functions** → `/api/revalidate`
+
+### Architecture Diagram
+
+```mermaid
+sequenceDiagram
+    participant Editor as Content Editor
+    participant Sanity as Sanity CMS
+    participant Webhook as Sanity Webhook
+    participant Vercel as Vercel (Next.js)
+    participant User as End User
+
+    Editor->>Sanity: Publish/Update Content
+    Sanity->>Webhook: Trigger Webhook
+    Webhook->>Vercel: POST /api/revalidate
+    Note over Webhook,Vercel: Includes secret & content type tag
+    Vercel->>Vercel: Validate Secret
+    Vercel->>Vercel: revalidateTag(contentType)
+    Vercel-->>Webhook: 200 OK
+    Webhook-->>Sanity: Webhook Success
+
+    User->>Vercel: Request Page
+    Vercel->>Sanity: Fetch Fresh Content (if cache invalid)
+    Sanity-->>Vercel: Return Content
+    Vercel-->>User: Render Updated Page
+```
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Webhook returns 401 error | Verify `REVALIDATE_SECRET` matches in both Vercel and Sanity |
+| Content not updating after publish | Check webhook logs in Sanity, ensure webhook is active |
+| Images not loading | Verify `NEXT_PUBLIC_SANITY_PROJECT_ID` is correct and images are published |
+| Build fails on Vercel | Check environment variables are set for all environments |
+| Sanity Studio not accessible | Ensure `/studio` route is deployed and CORS is configured in Sanity |
+
 ## Local Development
 
 ```bash
